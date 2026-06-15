@@ -62,9 +62,8 @@ export default function MapPage() {
     }
   }, [isKeyless]);
 
-  // Leaflet map initialization
   useEffect(() => {
-    if (isKeyless && leafletLoaded && products.length > 0) {
+    if (isKeyless && leafletLoaded) {
       const L = (window as any).L;
       if (!L) return;
 
