@@ -64,11 +64,13 @@ export default function MapPage() {
 
   // Leaflet map initialization
   useEffect(() => {
-    if (isKeyless && leafletLoaded && !mapRef.current) {
+    if (isKeyless && leafletLoaded && !loading && !mapRef.current) {
       const L = (window as any).L;
       if (!L) return;
 
       const container = L.DomUtil.get('leaflet-map');
+      if (!container) return; // Prevent "Map container not found" error if DOM node isn't ready
+
       if (container && (container as any)._leaflet_id) {
         container._leaflet_id = null;
       }
@@ -90,7 +92,7 @@ export default function MapPage() {
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isKeyless, leafletLoaded]);
+  }, [isKeyless, leafletLoaded, loading]);
 
   // Dynamically pan map view when mapCenter updates (e.g., coordinates load or user logs in)
   useEffect(() => {
