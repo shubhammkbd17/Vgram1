@@ -29,6 +29,10 @@ export default function RootLayout({
           href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
           precedence="default"
         />
+        <script 
+          src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          defer
+        />
       </head>
       <body className="antialiased bg-stone-50 text-stone-900 min-h-screen flex flex-col justify-between">
         <AppProvider>

@@ -35,33 +35,31 @@ export default function MapPicker({ initialLat, initialLng, onLocationSelect }: 
   const [resolvedAddress, setResolvedAddress] = useState('');
 
   const [leafletLoaded, setLeafletLoaded] = useState(false);
+  const mapRef = React.useRef<any>(null);
+  const markerRef = React.useRef<any>(null);
 
   useEffect(() => {
     if (isKeyless) {
-      // Load Leaflet CSS and JS
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(link);
-
-      const script = document.createElement('script');
-      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      script.onload = () => {
-        setLeafletLoaded(true);
+      const checkLeaflet = () => {
+        if ((window as any).L) {
+          setLeafletLoaded(true);
+        } else {
+          setTimeout(checkLeaflet, 100);
+        }
       };
-      document.head.appendChild(script);
+      checkLeaflet();
     }
   }, [isKeyless]);
 
   // Leaflet map initialization
   useEffect(() => {
-    if (isKeyless && leafletLoaded) {
+    if (isKeyless && leafletLoaded && !mapRef.current) {
       const L = (window as any).L;
       if (!L) return;
 
       const container = L.DomUtil.get('leaflet-picker-map');
       if (container && (container as any)._leaflet_id) {
-        return; // Already initialized
+        container._leaflet_id = null;
       }
 
       const map = L.map('leaflet-picker-map').setView([position.lat, position.lng], 6);
@@ -99,9 +97,34 @@ export default function MapPicker({ initialLat, initialLng, onLocationSelect }: 
         marker.setLatLng([lat, lng]);
         handleMarkerMove(lat, lng);
       });
+
+      mapRef.current = map;
+      markerRef.current = marker;
     }
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+        markerRef.current = null;
+      }
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isKeyless, leafletLoaded]);
+
+  // Synchronize Leaflet map view and marker when position changes (e.g., from initial load or searches)
+  useEffect(() => {
+    if (isKeyless && mapRef.current && markerRef.current) {
+      const currentCenter = mapRef.current.getCenter();
+      const distance = Math.abs(currentCenter.lat - position.lat) + Math.abs(currentCenter.lng - position.lng);
+      
+      // Update map view and marker only if position changed significantly (not from immediate marker dragging)
+      if (distance > 0.0001) {
+        mapRef.current.setView([position.lat, position.lng], mapRef.current.getZoom());
+        markerRef.current.setLatLng([position.lat, position.lng]);
+      }
+    }
+  }, [isKeyless, position]);
 
   useEffect(() => {
     if (initialLat && initialLng) {

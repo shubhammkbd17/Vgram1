@@ -31,6 +31,7 @@ export default function DashboardPage() {
   
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+  const [seeding, setSeeding] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -61,6 +62,85 @@ export default function DashboardPage() {
       console.error('Failed to fetch dashboard data', err);
     } finally {
       setDbLoading(false);
+    }
+  };
+
+  const handleSeedDemoData = async () => {
+    if (!user) return;
+    setSeeding(true);
+    try {
+      const demoProducts = [
+        {
+          producer_id: user.id,
+          title: 'Organic Sharbati Wheat',
+          description: 'Traditionally grown Sharbati wheat from the fertile farms of Punjab. Rich in taste and fiber, perfect for soft rotis.',
+          price: 65.00,
+          unit: 'kg',
+          category: 'Grains',
+          image_url: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
+          stock: 250,
+        },
+        {
+          producer_id: user.id,
+          title: 'Royal Delicious Apples',
+          description: 'Crisp, sweet, and juicy Royal Delicious apples handpicked directly from our orchards in Shimla. No chemical sprays.',
+          price: 180.00,
+          unit: 'kg',
+          category: 'Fruits',
+          image_url: 'https://images.unsplash.com/photo-1619546813926-a78fa6372cd2?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
+          stock: 100,
+        },
+        {
+          producer_id: user.id,
+          title: 'Pure Organic Turmeric Powder',
+          description: 'High-curcumin content turmeric powder processed locally on our spice farms in Gujarat. Unadulterated and full of aroma.',
+          price: 240.00,
+          unit: 'kg',
+          category: 'Organic Goods',
+          image_url: 'https://images.unsplash.com/photo-1615485290382-441e4d049cb5?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
+          stock: 50,
+        },
+        {
+          producer_id: user.id,
+          title: 'Aromatic Arabica Coffee Beans',
+          description: 'Single-origin premium Arabica coffee beans grown under shade in Chikmagalur. Medium roast, rich chocolatey notes.',
+          price: 450.00,
+          unit: '500g',
+          category: 'Organic Goods',
+          image_url: 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
+          stock: 40,
+        },
+        {
+          producer_id: user.id,
+          title: 'Fresh Farm Mustard Greens (Sarson)',
+          description: 'Fresh, vibrant green mustard leaves harvested at dawn. Perfect for making traditional Punjabi Sarson ka Saag.',
+          price: 40.00,
+          unit: 'kg',
+          category: 'Vegetables',
+          image_url: 'https://images.unsplash.com/photo-1587334206574-351ec379965f?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
+          stock: 80,
+        },
+        {
+          producer_id: user.id,
+          title: 'Handcrafted Clay Pots',
+          description: 'Traditional earthen pots handmade by local artisans. Environmentally friendly and keeps water naturally cool.',
+          price: 150.00,
+          unit: 'piece',
+          category: 'Handicrafts',
+          image_url: 'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
+          stock: 15,
+        }
+      ];
+
+      for (const item of demoProducts) {
+        await productAPI.createProduct(item);
+      }
+      
+      await fetchDashboardData();
+    } catch (e) {
+      console.error('Failed to seed demo data', e);
+    } finally {
+      setSeeding(false);
     }
   };
 
@@ -212,6 +292,22 @@ export default function DashboardPage() {
       {user.role === 'producer' ? (
         /* PRODUCER DASHBOARD */
         <div className="space-y-8">
+          {/* Warning for missing profile coordinates */}
+          {(!user.location_lat || !user.location_lng) && (
+            <div className="bg-amber-50 text-amber-900 border border-amber-200 text-sm rounded-2xl p-4.5 flex items-start gap-3 shadow-sm">
+              <span className="text-xl mt-0.5 shrink-0">📍</span>
+              <div>
+                <p className="font-bold text-amber-950">Farm Location Map Coordinates Not Configured</p>
+                <p className="text-xs text-amber-700/90 mt-1 leading-relaxed">
+                  Your listed products won&apos;t show up on the geographical map browse page because your farm coordinates are not set. Drag or click on the map in your profile settings to configure them.
+                </p>
+                <Link href="/profile" className="text-xs text-green-700 hover:text-green-800 font-bold underline mt-2 inline-block">
+                  Configure Farm Coordinates Now →
+                </Link>
+              </div>
+            </div>
+          )}
+
           {/* Stats Bar */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
             <div className="bg-white p-5 rounded-2xl border border-green-50 shadow-sm flex items-center gap-4">
@@ -246,11 +342,32 @@ export default function DashboardPage() {
               </h3>
 
               {products.length === 0 ? (
-                <div className="bg-white p-12 text-center rounded-2xl border border-dashed border-stone-200">
-                  <p className="text-stone-400 mb-4 text-sm font-medium">You haven&apos;t listed any harvests/goods yet.</p>
-                  <button onClick={handleOpenAddModal} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all inline-flex items-center gap-1">
-                    <Plus className="w-4 h-4" /> Add Product Now
-                  </button>
+                <div className="bg-white p-12 text-center rounded-2xl border border-dashed border-stone-200 space-y-4">
+                  <p className="text-stone-400 text-sm font-medium">You haven&apos;t listed any harvests/goods yet.</p>
+                  <div className="flex flex-col sm:flex-row justify-center items-center gap-3">
+                    <button onClick={handleOpenAddModal} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all inline-flex items-center gap-1.5 shadow-sm cursor-pointer">
+                      <Plus className="w-4.5 h-4.5" /> Add Product manually
+                    </button>
+                    <span className="text-xs text-stone-400 font-bold">OR</span>
+                    <button 
+                      onClick={handleSeedDemoData} 
+                      disabled={seeding}
+                      className="bg-amber-600 hover:bg-amber-700 disabled:bg-stone-300 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all inline-flex items-center gap-1.5 shadow-sm cursor-pointer"
+                    >
+                      {seeding ? (
+                        <>
+                          <Loader2 className="w-4.5 h-4.5 animate-spin" /> Seeding Demo Data...
+                        </>
+                      ) : (
+                        <>
+                          🌱 Seed 6 Sample Products
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-stone-400 max-w-md mx-auto">
+                    Seeding will automatically publish a mock catalog of 6 products (apples, turmeric, mustard greens, coffee beans, clay pots, and wheat) under your account to instantly populate your dashboard and the buyer map.
+                  </p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

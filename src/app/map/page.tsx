@@ -37,11 +37,13 @@ export default function MapPage() {
     googleMapsApiKey: isKeyless ? 'MOCK_KEY' : apiKey,
   });
 
-  const mapCenter = user && user.location_lat && user.location_lng
-    ? { lat: user.location_lat as number, lng: user.location_lng as number }
-    : (products.length > 0 && products[0].producer
-        ? { lat: products[0].producer.location_lat as number, lng: products[0].producer.location_lng as number }
-        : DEFAULT_CENTER);
+  const mapCenter = React.useMemo(() => {
+    return user && user.location_lat && user.location_lng
+      ? { lat: user.location_lat as number, lng: user.location_lng as number }
+      : (products.length > 0 && products[0].producer
+          ? { lat: products[0].producer.location_lat as number, lng: products[0].producer.location_lng as number }
+          : DEFAULT_CENTER);
+  }, [user, products]);
 
   const [leafletLoaded, setLeafletLoaded] = useState(false);
   const mapRef = useRef<any>(null);
@@ -49,18 +51,14 @@ export default function MapPage() {
 
   useEffect(() => {
     if (isKeyless) {
-      // Load Leaflet dynamically
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(link);
-
-      const script = document.createElement('script');
-      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      script.onload = () => {
-        setLeafletLoaded(true);
+      const checkLeaflet = () => {
+        if ((window as any).L) {
+          setLeafletLoaded(true);
+        } else {
+          setTimeout(checkLeaflet, 100);
+        }
       };
-      document.head.appendChild(script);
+      checkLeaflet();
     }
   }, [isKeyless]);
 
@@ -84,8 +82,22 @@ export default function MapPage() {
 
       mapRef.current = map;
     }
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isKeyless, leafletLoaded]);
+
+  // Dynamically pan map view when mapCenter updates (e.g., coordinates load or user logs in)
+  useEffect(() => {
+    if (isKeyless && mapRef.current) {
+      mapRef.current.setView([mapCenter.lat, mapCenter.lng], mapRef.current.getZoom());
+    }
+  }, [isKeyless, mapCenter]);
 
   // Render markers dynamically
   useEffect(() => {

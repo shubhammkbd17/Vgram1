@@ -327,16 +327,29 @@ export const authAPI = {
       initMockDb();
       return getLocalData<Profile | null>('vgram_current_user', null);
     } else {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
-      
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+      try {
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError) {
+          console.error('Supabase auth.getUser error:', authError);
+          return null;
+        }
+        if (!user) return null;
         
-      return profile || null;
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+          
+        if (profileError) {
+          console.error('Supabase fetch user profile error:', profileError);
+          return null;
+        }
+        return profile || null;
+      } catch (err) {
+        console.error('Unexpected error in getCurrentUser:', err);
+        return null;
+      }
     }
   }
 };
@@ -351,12 +364,21 @@ export const profileAPI = {
       const users = getLocalData<Profile[]>('vgram_profiles', []);
       return users.find(u => u.id === userId) || null;
     } else {
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      return data;
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
+        if (error) {
+          console.error('Supabase getProfile error:', error);
+          return null;
+        }
+        return data;
+      } catch (err) {
+        console.error('Unexpected error in getProfile:', err);
+        return null;
+      }
     }
   },
 
@@ -391,11 +413,20 @@ export const profileAPI = {
       const users = getLocalData<Profile[]>('vgram_profiles', []);
       return users.filter(u => u.role === 'producer');
     } else {
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'producer');
-      return data || [];
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('role', 'producer');
+        if (error) {
+          console.error('Supabase getProducers error:', error);
+          return [];
+        }
+        return data || [];
+      } catch (err) {
+        console.error('Unexpected error in getProducers:', err);
+        return [];
+      }
     }
   }
 };
@@ -433,20 +464,29 @@ export const productAPI = {
       }
       return products;
     } else {
-      let query = supabase.from('products').select('*, producer:profiles(*)');
-      
-      if (filters?.producerId) {
-        query = query.eq('producer_id', filters.producerId);
+      try {
+        let query = supabase.from('products').select('*, producer:profiles(*)');
+        
+        if (filters?.producerId) {
+          query = query.eq('producer_id', filters.producerId);
+        }
+        if (filters?.category && filters.category !== 'All') {
+          query = query.eq('category', filters.category);
+        }
+        if (filters?.query) {
+          query = query.or(`title.ilike.%${filters.query}%,description.ilike.%${filters.query}%`);
+        }
+        
+        const { data, error } = await query;
+        if (error) {
+          console.error('Supabase getProducts error:', error);
+          return [];
+        }
+        return (data as any) || [];
+      } catch (err) {
+        console.error('Unexpected error in getProducts:', err);
+        return [];
       }
-      if (filters?.category && filters.category !== 'All') {
-        query = query.eq('category', filters.category);
-      }
-      if (filters?.query) {
-        query = query.or(`title.ilike.%${filters.query}%,description.ilike.%${filters.query}%`);
-      }
-      
-      const { data } = await query;
-      return (data as any) || [];
     }
   },
 
@@ -463,12 +503,21 @@ export const productAPI = {
         producer: users.find(u => u.id === product.producer_id)
       };
     } else {
-      const { data } = await supabase
-        .from('products')
-        .select('*, producer:profiles(*)')
-        .eq('id', id)
-        .single();
-      return data as any;
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*, producer:profiles(*)')
+          .eq('id', id)
+          .single();
+        if (error) {
+          console.error('Supabase getProduct error:', error);
+          return null;
+        }
+        return data as any;
+      } catch (err) {
+        console.error('Unexpected error in getProduct:', err);
+        return null;
+      }
     }
   },
 
@@ -636,13 +685,22 @@ export const orderAPI = {
         return orders.filter(o => o.consumer_id === userId);
       }
     } else {
-      const field = role === 'producer' ? 'producer_id' : 'consumer_id';
-      const { data } = await supabase
-        .from('orders')
-        .select('*, consumer:profiles(*), producer:profiles(*), items:order_items(*, product:products(*))')
-        .eq(field, userId)
-        .order('created_at', { ascending: false });
-      return (data as any) || [];
+      try {
+        const field = role === 'producer' ? 'producer_id' : 'consumer_id';
+        const { data, error } = await supabase
+          .from('orders')
+          .select('*, consumer:profiles(*), producer:profiles(*), items:order_items(*, product:products(*))')
+          .eq(field, userId)
+          .order('created_at', { ascending: false });
+        if (error) {
+          console.error('Supabase getOrders error:', error);
+          return [];
+        }
+        return (data as any) || [];
+      } catch (err) {
+        console.error('Unexpected error in getOrders:', err);
+        return [];
+      }
     }
   },
 
