@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/context/AppContext';
 import { productAPI } from '@/lib/api';
 import { Product } from '@/lib/types';
@@ -44,6 +44,8 @@ export default function MapPage() {
         : DEFAULT_CENTER);
 
   const [leafletLoaded, setLeafletLoaded] = useState(false);
+  const mapRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
 
   useEffect(() => {
     if (isKeyless) {
@@ -62,14 +64,15 @@ export default function MapPage() {
     }
   }, [isKeyless]);
 
+  // Leaflet map initialization
   useEffect(() => {
-    if (isKeyless && leafletLoaded) {
+    if (isKeyless && leafletLoaded && !mapRef.current) {
       const L = (window as any).L;
       if (!L) return;
 
       const container = L.DomUtil.get('leaflet-map');
       if (container && (container as any)._leaflet_id) {
-        return; // Already initialized
+        container._leaflet_id = null;
       }
 
       const map = L.map('leaflet-map').setView([mapCenter.lat, mapCenter.lng], 5);
@@ -79,44 +82,65 @@ export default function MapPage() {
         attribution: '© OpenStreetMap contributors'
       }).addTo(map);
 
-      const greenIcon = L.divIcon({
-        html: `<div style="display:flex; justify-content:center; align-items:center;"><i class="fa-solid fa-location-pin" style="color: #1B5E20; font-size: 28px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3))"></i></div>`,
-        className: 'custom-div-icon',
-        iconSize: [28, 28],
-        iconAnchor: [14, 28]
-      });
-
-      const blueIcon = L.divIcon({
-        html: `<div style="display:flex; justify-content:center; align-items:center;"><i class="fa-solid fa-street-view" style="color: #1976D2; font-size: 28px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3))"></i></div>`,
-        className: 'custom-div-icon',
-        iconSize: [28, 28],
-        iconAnchor: [14, 28]
-      });
-
-      if (user && user.location_lat && user.location_lng) {
-        L.marker([user.location_lat, user.location_lng], { icon: blueIcon })
-          .addTo(map)
-          .bindPopup(`<b>You</b><br/>${user.full_name}`);
-      }
-
-      products.forEach(prod => {
-        if (prod.producer && prod.producer.location_lat && prod.producer.location_lng) {
-          L.marker([prod.producer.location_lat, prod.producer.location_lng], { icon: greenIcon })
-            .addTo(map)
-            .bindPopup(`
-              <div style="font-family: 'Inter', sans-serif; font-size: 12px; color: #333;">
-                <h4 style="margin: 0 0 4px 0; font-weight: bold; color: #1B5E20;">${prod.title}</h4>
-                <p style="margin: 0 0 6px 0; font-size: 10px; color: #666;">Farmer: ${prod.producer?.full_name}</p>
-                <p style="margin: 0 0 6px 0; font-weight: bold;">₹${prod.price} / ${prod.unit}</p>
-              </div>
-            `)
-            .on('click', () => {
-              setSelectedProduct(prod);
-            });
-        }
-      });
+      mapRef.current = map;
     }
-  }, [isKeyless, leafletLoaded, products, user, mapCenter]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isKeyless, leafletLoaded]);
+
+  // Render markers dynamically
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const L = (window as any).L;
+    if (!L) return;
+
+    const map = mapRef.current;
+
+    // Clear old markers
+    markersRef.current.forEach(marker => map.removeLayer(marker));
+    markersRef.current = [];
+
+    const greenIcon = L.divIcon({
+      html: `<div style="display:flex; justify-content:center; align-items:center;"><i class="fa-solid fa-location-pin" style="color: #1B5E20; font-size: 28px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3))"></i></div>`,
+      className: 'custom-div-icon',
+      iconSize: [28, 28],
+      iconAnchor: [14, 28]
+    });
+
+    const blueIcon = L.divIcon({
+      html: `<div style="display:flex; justify-content:center; align-items:center;"><i class="fa-solid fa-street-view" style="color: #1976D2; font-size: 28px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3))"></i></div>`,
+      className: 'custom-div-icon',
+      iconSize: [28, 28],
+      iconAnchor: [14, 28]
+    });
+
+    if (user && user.location_lat && user.location_lng) {
+      const buyerMarker = L.marker([user.location_lat, user.location_lng], { icon: blueIcon })
+        .addTo(map)
+        .bindPopup(`<b>You</b><br/>${user.full_name}`);
+      markersRef.current.push(buyerMarker);
+    }
+
+    products.forEach(prod => {
+      if (prod.producer && prod.producer.location_lat && prod.producer.location_lng) {
+        const marker = L.marker([prod.producer.location_lat, prod.producer.location_lng], { icon: greenIcon })
+          .addTo(map)
+          .bindPopup(`
+            <div style="font-family: 'Inter', sans-serif; font-size: 12px; color: #333; min-width: 150px;">
+              <h4 style="margin: 0 0 4px 0; font-weight: bold; color: #1B5E20;">${prod.title}</h4>
+              <p style="margin: 0 0 6px 0; font-size: 10px; color: #666;">Farmer: ${prod.producer?.full_name}</p>
+              <p style="margin: 0 0 6px 0; font-weight: bold;">₹${prod.price} / ${prod.unit}</p>
+              <a href="/products/${prod.id}" style="color: #2E7D32; font-weight: bold; text-decoration: none; display: inline-block; margin-top: 4px;">View Harvest</a>
+            </div>
+          `);
+        
+        marker.on('click', () => {
+          setSelectedProduct(prod);
+        });
+
+        markersRef.current.push(marker);
+      }
+    });
+  }, [isKeyless, leafletLoaded, products, user]);
 
   useEffect(() => {
     fetchMapProducts();
