@@ -4,11 +4,8 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 // Detect if we are using placeholders, meaning we should run in Mock Mode for testing
-export const isMockMode = 
-  !supabaseUrl || 
-  supabaseUrl.includes('placeholder') || 
-  !supabaseAnonKey || 
-  supabaseAnonKey.includes('placeholder');
+export const isMockMode = true; // FORCE MOCK MODE for immediate testing
+
 
 export const supabase = !isMockMode 
   ? createClient(supabaseUrl, supabaseAnonKey) 
